@@ -271,7 +271,7 @@
 
             function positionCells(region) {
                 const map = maps[region];
-                if (!map || !map.loaded()) return;
+                if (!map) return;
 
                 const svg = d3.select(`#svg-${region.replace(/\s+/g, "-")}`);
 
@@ -282,7 +282,7 @@
 
             function drawRegionCells(region, regionData) {
                 const map = maps[region];
-                if (!map || !map.loaded()) return;
+                if (!map) return;
 
                 const svg = d3.select(`#svg-${region.replace(/\s+/g, "-")}`);
 
@@ -394,7 +394,14 @@
                     mapsReady += 1;
 
                     if (mapsReady === totalMaps) {
-                        renderState(0);
+                        requestAnimationFrame(() => {
+                            regions.forEach(r => maps[r].resize());
+
+                            setTimeout(() => {
+                                renderState(0);
+                                rerenderPositionsOnly();
+                            }, 250);
+                        });
                     }
                 });
 
