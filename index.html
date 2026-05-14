@@ -25,6 +25,15 @@
             margin-bottom: 5px;
         }
 
+        #writeup {
+            text-align: left;
+            align-self: center;
+        }
+
+        #writeup h2 {
+            text-align: left;
+        }
+
         .subtitle {
             color: #888;
             margin-bottom: 20px;
@@ -515,6 +524,42 @@
                 .style("color", "red");
         });
     </script>
+
+    <div class="writeup">
+        <h2>Write-Up</h2>
+        <p>
+            For our project we showcased how sea surface temperatures differ over the course of a month along different
+            California coastal cities.
+            We had originally planned to create an interactive map of California showing the difference in temperatures
+            throughout the summer,
+            where we could select the different cities and then be able to zoom in on a certain area, and use a slider
+            to change the day and show the corresponding temperatures.
+            However due to time constraints we were not able to obtain the data in time for a visual of that scale and
+            mapping the heatmaps this way did not give us a satisfactory result.
+            We decided to pivot to showing the graphs side by side on one screen with a shared slider that changes the
+            day for all cities at the same time.
+            Our workflow consisted of obtaining our data from the GOES satellite and calculating the daily mean SST for
+            each pixel in the area near our targeted locations.
+            We then rendered these temperatures using D3 svg rectangles along the coast of each city with Mapbox as our
+            map base.
+            We also implemented brushing, where if you hover over any rectangle it will give you the exact temperature
+            for that area.
+            In addition, each visual supports zooming and dragging, which allows users to explore different parts of the
+            map more closely
+        </p>
+        <p>
+            For our development process we worked together exploring the datasets before making our final selection and decision on the topic. 
+            For how we split up work, Nicholas was responsible for the checkpoint portion, retrieving the initial data and idea formulation for the visual. 
+            He also helped with mapping the background of the graphs to the California coast. Chengyun was responsible for the video portion of our checkpoint, 
+            retrieving the data needed to create our final visuals alongside implementing the elements of D3, creating our temperature heatmaps, and webpage setup/design.  
+        </p>
+        <p>
+            Overall completing our project took about maybe 15 - 20 hours. One of the most time consuming parts of the project was acquiring our data. 
+            Pulling the data took much longer than we anticipated which is why we pivoted from the whole summer to one month. 
+            We also only pulled data for every three days in order to be more time efficient but still be able to accurately portray the data. 
+            The other time consuming part was finding a way to convert GOES satellite coordinates into longitude and latitude to get data on each specific city. 
+        </p>
+    </div>
 </body>
 
 </html>
