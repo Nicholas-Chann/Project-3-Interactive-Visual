@@ -1,26 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Dynamic Regional Coastal SST Dashboard</title>
+
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.23.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.23.1/mapbox-gl.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #121212; 
-            color: #eeeeee; 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #121212;
+            color: #eeeeee;
             margin: 0;
             padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-        
-        h1 { margin-bottom: 5px; }
-        .subtitle { color: #888; margin-bottom: 20px; }
 
-        #controls { 
-            background: #1e1e1e; 
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        #controls {
+            background: #1e1e1e;
             border: 1px solid #333;
             border-radius: 8px;
             padding: 15px 30px;
@@ -28,11 +39,21 @@
             align-items: center;
             gap: 20px;
             margin-bottom: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
-        
-        input[type=range] { width: 400px; cursor: pointer; }
-        #date-display { font-size: 1.4em; font-weight: bold; color: #4da6ff; min-width: 120px; text-align: center; }
+
+        input[type=range] {
+            width: 400px;
+            cursor: pointer;
+        }
+
+        #date-display {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #4da6ff;
+            min-width: 120px;
+            text-align: center;
+        }
 
         /* Legend container styling */
         #legend-container {
@@ -44,54 +65,94 @@
         }
 
         #map-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 30px;
-            max-width: 1600px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+            width: 100%;
+            max-width: 1700px;
+            justify-items: center;
         }
 
         .region-panel {
             background: #1e1e1e;
             border: 1px solid #333;
             border-radius: 8px;
-            padding: 15px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            width: 400px;
         }
 
-        .region-title { 
-            font-size: 1.2em; 
-            font-weight: bold; 
-            margin-bottom: 15px; 
+        .region-title {
+            font-size: 1em;
+            font-weight: bold;
+            margin-bottom: 10px;
             letter-spacing: 1px;
             text-transform: uppercase;
         }
 
-        svg { background: #0a0a0a; border-radius: 4px; }
-        
+        .mapbox-panel {
+            position: relative;
+            width: 390px;
+            height: 390px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #0a0a0a;
+        }
+
+        .mapbox-map {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        .sst-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            width: 390px;
+            height: 390px;
+            background: transparent;
+            pointer-events: none;
+        }
+
+        .sst-cell {
+            pointer-events: all;
+            cursor: pointer;
+        }
+
         .tooltip {
             position: absolute;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(20, 20, 20, 0.95);
             color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
+            padding: 8px 10px;
+            border-radius: 6px;
             font-size: 12px;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.2s;
+            transition: opacity 0.15s;
             border: 1px solid #555;
-            z-index: 10;
+            z-index: 9999;
+        }
+
+        .tooltip * {
+            color: white;
+        }
+
+        .mapboxgl-ctrl-logo,
+        .mapboxgl-ctrl-attrib {
+            opacity: 0.55;
         }
     </style>
 </head>
+
 <body>
 
     <h1>California Coastal Sea Surface Temperatures</h1>
     <div class="subtitle">GOES Satellite Daily Averages</div>
-    
+
     <div id="controls">
         <label for="time-slider" style="font-weight: bold;">Timeline:</label>
         <input type="range" id="time-slider" min="0" value="0" step="1">
@@ -100,14 +161,14 @@
 
     <!-- Container for the Color Scale Legend -->
     <div id="legend-container"></div>
-
     <div id="map-container"></div>
     <div id="tooltip" class="tooltip"></div>
 
     <script>
+        mapboxgl.accessToken = "pk.eyJ1IjoibmljaG9sYXNjMDgiLCJhIjoiY21wNHd4b3JiMDg4ejJ0cHFmdTY5OWFmMiJ9.TuRmLkR0GYSMKlw478HK8w";
         const panelWidth = 400;
         const panelHeight = 400;
-        const rectSize = 6; 
+        const rectSize = 6;
 
         // Define our temperature bounds for the California coast
         const tempMin = 50;
@@ -116,29 +177,33 @@
         const tooltip = d3.select("#tooltip");
 
         const regionConfigs = {
-            "Mendocino": { center: [-123.8, 39.3], scale: 12000 },
-            "San Francisco": { center: [-122.4, 37.7], scale: 12000 },
-            "Monterey": { center: [-121.9, 36.6], scale: 12000 },
-            "San Diego": { center: [-117.2, 32.7], scale: 12000 }
+            "Mendocino": { center: [-123.8, 39.3], zoom: 7.4 },
+            "San Francisco": { center: [-122.45, 37.75], zoom: 7.45 },
+            "Monterey": { center: [-121.9, 36.6], zoom: 7.5 },
+            "San Diego": { center: [-117.25, 32.7], zoom: 7.4 }
         };
 
         // --- NEW: Legend Generation Function ---
         function drawLegend() {
             const legendWidth = 400;
             const legendHeight = 20;
-            
+
+            d3.select("#legend-container").selectAll("*").remove();
+
             const svg = d3.select("#legend-container").append("svg")
                 .attr("width", legendWidth + 40)
                 .attr("height", 50);
 
             const defs = svg.append("defs");
+
             const linearGradient = defs.append("linearGradient")
                 .attr("id", "linear-gradient");
 
             // Generate color stops for the gradient based on our Turbo scale
             linearGradient.selectAll("stop")
                 .data(d3.range(0, 1.05, 0.05))
-                .enter().append("stop")
+                .enter()
+                .append("stop")
                 .attr("offset", d => d * 100 + "%")
                 .attr("stop-color", d => d3.interpolateTurbo(d));
 
@@ -162,127 +227,250 @@
                 .attr("transform", "translate(20, 30)")
                 .call(xAxis)
                 .select(".domain").remove(); // Remove the solid axis line for a cleaner look
-                
+
             // Make legend text white
             svg.selectAll("text").style("fill", "#eee");
             svg.selectAll("line").style("stroke", "#eee");
         }
 
-        function createDashboard(regionalSstCsv, californiaGeoJson) {
+        function createDashboard(regionalSstCsv) {
             const dataByDate = d3.group(regionalSstCsv, d => d.date);
             const dates = Array.from(dataByDate.keys()).sort();
             const regions = ["Mendocino", "San Francisco", "Monterey", "San Diego"];
 
-            const localProjections = {};
-            regions.forEach(region => {
-                const config = regionConfigs[region];
-                localProjections[region] = d3.geoMercator()
-                    .center(config.center)
-                    .scale(config.scale)
-                    .translate([panelWidth / 2, panelHeight / 2]);
-            });
+            const maps = {};
+            let mapsReady = 0;
+            const totalMaps = regions.length;
+
+            let currentDateIndex = 0;
+            let currentDataByRegion = new Map();
 
             const container = d3.select("#map-container");
+
             const panels = container.selectAll(".region-panel")
                 .data(regions)
                 .join("div")
                 .attr("class", "region-panel");
-            
-            panels.append("div").attr("class", "region-title").text(d => d);
 
-            const svgs = panels.append("svg")
+            panels.append("div")
+                .attr("class", "region-title")
+                .text(d => d);
+
+            const mapPanels = panels.append("div")
+                .attr("class", "mapbox-panel");
+
+            mapPanels.append("div")
+                .attr("class", "mapbox-map")
+                .attr("id", d => `map-${d.replace(/\s+/g, "-")}`);
+
+            mapPanels.append("svg")
+                .attr("class", "sst-overlay")
                 .attr("width", panelWidth)
                 .attr("height", panelHeight)
-                .attr("id", d => `svg-${d.replace(/\s+/g, '-')}`);
+                .attr("id", d => `svg-${d.replace(/\s+/g, "-")}`);
 
-            regions.forEach(region => {
-                const svg = d3.select(`#svg-${region.replace(/\s+/g, '-')}`);
-                const proj = localProjections[region];
-                const pathGenerator = d3.geoPath().projection(proj);
+            function positionCells(region) {
+                const map = maps[region];
+                if (!map || !map.loaded()) return;
 
-                svg.append("g")
-                    .selectAll("path")
-                    .data(californiaGeoJson.features)
-                    .join("path")
-                    .attr("d", pathGenerator)
-                    .attr("fill", "#444") 
-                    .attr("stroke", "#666")
-                    .attr("stroke-width", 1);
-            });
+                const svg = d3.select(`#svg-${region.replace(/\s+/g, "-")}`);
+
+                svg.selectAll(".sst-cell")
+                    .attr("x", d => map.project([d.lon, d.lat]).x - rectSize / 2)
+                    .attr("y", d => map.project([d.lon, d.lat]).y - rectSize / 2);
+            }
+
+            function drawRegionCells(region, regionData) {
+                const map = maps[region];
+                if (!map || !map.loaded()) return;
+
+                const svg = d3.select(`#svg-${region.replace(/\s+/g, "-")}`);
+
+                svg.selectAll(".sst-cell")
+                    .data(regionData, d => `${d.date}-${d.lat}-${d.lon}`)
+                    .join(
+                        enter => enter.append("rect")
+                            .attr("class", "sst-cell")
+                            .attr("width", rectSize + 1)
+                            .attr("height", rectSize + 1)
+                            .attr("stroke", "none")
+                            .attr("opacity", 0.9)
+                            .attr("fill", d => colorScale(d.sst))
+                            .on("mouseover", (event, d) => {
+                                tooltip
+                                    .style("opacity", 1)
+                                    .html(`
+                                        <strong>${d.region}</strong><br>
+                                        Date: ${d.date}<br>
+                                        SST: ${d.sst.toFixed(1)}°F
+                                    `)
+                                    .style("left", `${event.pageX + 15}px`)
+                                    .style("top", `${event.pageY - 20}px`);
+                            })
+                            .on("mousemove", event => {
+                                tooltip
+                                    .style("left", `${event.pageX + 15}px`)
+                                    .style("top", `${event.pageY - 20}px`);
+                            })
+                            .on("mouseout", () => {
+                                tooltip.style("opacity", 0);
+                            })
+                            .on("wheel", (event) => {
+                                event.preventDefault();
+
+                                const zoomAmount = event.deltaY < 0 ? 0.35 : -0.35;
+                                const nextZoom = map.getZoom() + zoomAmount;
+
+                                const rect = map.getContainer().getBoundingClientRect();
+                                const point = [
+                                    event.clientX - rect.left,
+                                    event.clientY - rect.top
+                                ];
+
+                                const lngLat = map.unproject(point);
+
+                                map.easeTo({
+                                    zoom: nextZoom,
+                                    around: lngLat,
+                                    duration: 80
+                                });
+                            }),
+                        update => update
+                            .attr("fill", d => colorScale(d.sst)),
+                        exit => exit.remove()
+                    );
+
+                positionCells(region);
+            }
 
             function renderState(dateIndex) {
+                currentDateIndex = dateIndex;
+
                 const targetDate = dates[dateIndex];
                 d3.select("#date-display").text(targetDate);
 
-                const currentDataByDate = dataByDate.get(targetDate) || [];
-                const currentDataByRegion = d3.group(currentDataByDate, d => d.region);
+                const currentData = dataByDate.get(targetDate) || [];
+                currentDataByRegion = d3.group(currentData, d => d.region);
 
                 regions.forEach(region => {
                     const regionData = currentDataByRegion.get(region) || [];
-                    const proj = localProjections[region];
-                    const svg = d3.select(`#svg-${region.replace(/\s+/g, '-')}`);
-
-                    svg.selectAll(".pixel")
-                        .data(regionData, d => `${d.lat}-${d.lon}`)
-                        .join(
-                            enter => enter.append("rect")
-                                .attr("class", "pixel")
-                                .attr("x", d => proj([d.lon, d.lat])[0])
-                                .attr("y", d => proj([d.lon, d.lat])[1])
-                                .attr("width", rectSize)
-                                .attr("height", rectSize)
-                                .attr("fill", d => colorScale(d.sst))
-                                .on("mouseover", (event, d) => {
-                                    tooltip.style("opacity", 1)
-                                        .html(`<strong>${d.region}</strong><br/>Temp: ${d.sst.toFixed(1)}°F`)
-                                        .style("left", (event.pageX + 15) + "px")
-                                        .style("top", (event.pageY - 20) + "px");
-                                })
-                                .on("mouseout", () => tooltip.style("opacity", 0)),
-                            update => update.transition().duration(400).attr("fill", d => colorScale(d.sst)),
-                            exit => exit.remove()
-                        );
+                    drawRegionCells(region, regionData);
                 });
             }
 
+            function rerenderPositionsOnly() {
+                regions.forEach(region => {
+                    positionCells(region);
+                });
+            }
+
+            regions.forEach(region => {
+                const config = regionConfigs[region];
+
+                maps[region] = new mapboxgl.Map({
+                    container: `map-${region.replace(/\s+/g, "-")}`,
+                    style: "mapbox://styles/mapbox/light-v11",
+                    center: config.center,
+                    zoom: config.zoom,
+                    interactive: true,
+                    attributionControl: false
+                });
+
+                maps[region].addControl(
+                    new mapboxgl.NavigationControl({ showCompass: false }),
+                    "top-right"
+                );
+
+                maps[region].on("load", () => {
+                    maps[region].resize();
+
+                    // Hide all Mapbox text/labels
+                    maps[region].getStyle().layers.forEach(layer => {
+                        if (layer.type === "symbol") {
+                            maps[region].setLayoutProperty(layer.id, "visibility", "none");
+                        }
+                    });
+
+                    mapsReady += 1;
+
+                    if (mapsReady === totalMaps) {
+                        renderState(0);
+                    }
+                });
+
+                maps[region].on("move", rerenderPositionsOnly);
+                maps[region].on("zoom", rerenderPositionsOnly);
+                maps[region].on("render", rerenderPositionsOnly);
+                maps[region].on("moveend", rerenderPositionsOnly);
+                maps[region].on("zoomend", rerenderPositionsOnly);
+
+                maps[region].on("error", e => {
+                    console.error(`Mapbox error for ${region}:`, e.error);
+                });
+
+                setTimeout(() => {
+                    maps[region].resize();
+                }, 200);
+            });
+
             const slider = d3.select("#time-slider")
                 .attr("max", dates.length - 1)
-                .on("input", function() { renderState(+this.value); });
+                .on("input", function () {
+                    renderState(+this.value);
+                });
 
-            // Call the legend function
             drawLegend();
-            renderState(0);
         }
 
-        const geoJsonUrl = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json";
+        d3.csv("regional_coastal_sst.csv", d => {
+            let rawTemp = +d.sst_fahrenheit;
 
-        Promise.all([
-            d3.csv("regional_coastal_sst.csv", d => {
-                // --- NEW: KELVIN TO FAHRENHEIT FIX ---
-                let rawTemp = +d.sst_fahrenheit;
-                // If the temperature is over 200, it's definitely Kelvin. 
-                // Formula: (K − 273.15) × 9/5 + 32
-                let actualFahrenheit = rawTemp > 200 ? (rawTemp - 273.15) * 9/5 + 32 : rawTemp;
-                
-                return {
-                    region: d.region, 
-                    date: d.date, 
-                    lat: +d.lat, 
-                    lon: +d.lon, 
-                    sst: actualFahrenheit 
-                };
-            }),
-            d3.json(geoJsonUrl)
-        ]).then(([regionalSst, usGeoJson]) => {
-            const californiaGeo = {
-                type: "FeatureCollection",
-                features: usGeoJson.features.filter(f => f.properties.name === "California")
+            let actualFahrenheit = rawTemp > 200
+                ? (rawTemp - 273.15) * 9 / 5 + 32
+                : rawTemp;
+
+            const rawRegion = d.region || d.location;
+
+            return {
+                region: rawRegion,
+                date: d.date,
+                lat: +d.lat,
+                lon: +d.lon,
+                sst: actualFahrenheit
             };
-            createDashboard(regionalSst, californiaGeo);
+        }).then(regionalSst => {
+            regionalSst = regionalSst.filter(d =>
+                d.region &&
+                d.date &&
+                Number.isFinite(d.lat) &&
+                Number.isFinite(d.lon) &&
+                Number.isFinite(d.sst)
+            );
+
+            console.log("Loaded rows:", regionalSst.length);
+            console.log("First row:", regionalSst[0]);
+            console.log("Regions:", [...new Set(regionalSst.map(d => d.region))]);
+            console.log("Dates:", [...new Set(regionalSst.map(d => d.date))].slice(0, 5));
+
+            createDashboard(regionalSst);
         }).catch(err => {
             console.error(err);
-            d3.select("#date-display").text("Error loading files!").style("color", "red");
+
+            let animationFrame = null;
+
+            function scheduleReposition() {
+                if (animationFrame) return;
+
+                animationFrame = requestAnimationFrame(() => {
+                    repositionAllCells();
+                    animationFrame = null;
+                });
+            }
+            d3.select("#date-display")
+                .text("Error loading files!")
+                .style("color", "red");
         });
     </script>
 </body>
+
 </html>
